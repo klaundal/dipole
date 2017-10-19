@@ -1,9 +1,3 @@
-# dipole
-Calculations of dipole axis, dipole poles, and dipole tilt angle
-
-# dependencies
-numpy, pandas
-
 Welcome to dipole’s documentation!
 **********************************
 
