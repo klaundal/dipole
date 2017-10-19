@@ -8,7 +8,7 @@ Example of how to calculate dipole tilt angle:
 [ 26.79107107]
 ```
 
-One can also give several times as input, and the tilt angle will be calculated for each of them. Since the calculations are entirely based on array observations, this is quite fast.
+One can also give several times as input, and the tilt angle will be calculated for each of them. Since the calculations are entirely based on array calculations, this is quite fast.
 ```python
 >>> print dipole_tilt([datetime(1927, 6, 10, 12, 00), datetime(1927, 6, 10, 10, 00)], epoch = 1927)
 [ 26.79107107  20.89550663]
@@ -23,6 +23,7 @@ The epoch keyword is the year (with fraction) for which the dipole axis is calcu
 
 
 Calculation of dipole axis, dipole poles, dipole tilt angle, and subsolar point is described in
+
 Laundal, K.M. & Richmond, A.D. Space Sci Rev (2017) 206: 27. https://doi.org/10.1007/s11214-016-0275-y
 
 
