@@ -25,6 +25,8 @@ The epoch keyword is the year (with fraction) for which the dipole axis is calcu
 Calculation of dipole axis, dipole poles, dipole tilt angle, and subsolar point is described in
 Laundal, K.M. & Richmond, A.D. Space Sci Rev (2017) 206: 27. https://doi.org/10.1007/s11214-016-0275-y
 
+(Note that there seems to be a mistake in equation 14 of that paper, showing a formula for for the centered dipole longitude in the northern hemisphere. That formula will give the pole longitude in the southern hemisphere instead)
+
 
 # dependencies
 numpy, pandas
