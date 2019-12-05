@@ -26,7 +26,7 @@ SOFTWARE.
 """
 
 import numpy as np
-from utils import car_to_sph
+from .utils import car_to_sph
 
 d2r = np.pi/180
 r2d = 180/np.pi
