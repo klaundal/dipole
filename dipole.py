@@ -26,8 +26,12 @@ SOFTWARE.
 """
 
 import numpy as np
+<<<<<<< HEAD
 import pandas as pd
 from .utils import car_to_sph, sph_to_car, enu_to_ecef, ecef_to_enu
+=======
+from .utils import car_to_sph
+>>>>>>> 9f7faa6074e4a8b7252174abe527a68df6a0f136
 
 d2r = np.pi/180
 r2d = 180/np.pi
