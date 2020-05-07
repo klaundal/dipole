@@ -27,7 +27,7 @@ SOFTWARE.
 
 import numpy as np
 import pandas as pd
-
+from .utils import sph_to_car
 
 d2r = np.pi/180
 r2d = 180/np.pi
@@ -190,3 +190,20 @@ def is_leapyear(year):
 
     else:
         return False
+
+def sza(glat, glon, time):
+    """ return solar zenith angle - the angle of a vertical axis with the Sun Earth line - 
+        at given geographic latitudes, longitudes, and times
+
+        input and output in degrees
+    """
+
+    # calculate subsolar points
+    sslat, sslon = subsol(time)
+
+    ssr = sph_to_car(np.vstack((np.ones_like(sslat), 90 - sslat, 90 - sslon)), deg = True)
+    gcr = sph_to_car(np.array([[1.], [90 - glat ], [glon ]]), deg = True)
+
+    # the angle is arccos of the dot product of these two vectors
+    return np.arccos(np.sum(ssr*gcr, axis = 0))*180/np.pi
+

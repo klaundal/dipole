@@ -94,4 +94,62 @@ def car_to_sph(car, deg = True):
 
     return np.vstack((r, theta, phi))
 
+def enu_to_ecef(v, lon, lat, reverse = False):
+    """ convert vector(s) v from ENU to ECEF (or opposite)
+
+    Parameters
+    ----------
+    v: array
+        N x 3 array of east, north, up components
+    lat: array
+        N array of latitudes (degrees)
+    lon: array
+        N array of longitudes (degrees)
+    reverse: bool (optional)
+        perform the reverse operation (ecef -> enu). Default False
+
+    Returns
+    -------
+    v_ecef: array
+        N x 3 array of x, y, z components
+
+
+    Author: Kalle, March 2020
+    """
+
+    # construct unit vectors in east, north, up directions:
+    ph = lon * d2r
+    th = (90 - lat) * d2r
+
+    e = np.vstack((-np.sin(ph)             ,               np.cos(ph), np.zeros_like(ph))).T # (N, 3)
+    n = np.vstack((-np.cos(th) * np.cos(ph), -np.cos(th) * np.sin(ph), np.sin(th)       )).T # (N, 3)
+    u = np.vstack(( np.sin(th) * np.cos(ph),  np.sin(th) * np.sin(ph), np.cos(th)       )).T # (N, 3)
+
+    # rotation matrices (enu in columns if reverse, in rows otherwise):
+    R_EN_2_ECEF = np.stack((e, n, u), axis = 1 if reverse else 2) # (N, 3, 3)
+
+    # perform the rotations:
+    return np.einsum('nij, nj -> ni', R_EN_2_ECEF, v)
+
+
+def ecef_to_enu(v, lon, lat):
+    """ convert vector(s) v from ECEF to ENU
+
+    Parameters
+    ----------
+    v: array
+        N x 3 array of x, y, z components
+    lat: array
+        N array of latitudes (degrees)
+    lon: array
+        N array of longitudes (degrees)
+
+    Returns
+    -------
+    v_ecef: array
+        N x 3 array of east, north, up components
+
+    See enu_to_ecef for implementation details
+    """
+    return enu_to_ecef(v, lon, lat, reverse = True)
 
