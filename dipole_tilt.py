@@ -33,11 +33,8 @@ SOFTWARE.
 """
 
 import numpy as np
-<<<<<<< HEAD
 from dipole import dipole_axis
-=======
 from .dipole import dipole_axis
->>>>>>> 9f7faa6074e4a8b7252174abe527a68df6a0f136
 from .sun import subsol
 r2d = 180/np.pi
 d2r = 1./r2d
