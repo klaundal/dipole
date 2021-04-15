@@ -30,6 +30,8 @@ import pandas as pd
 from .utils import car_to_sph, sph_to_car, enu_to_ecef, ecef_to_enu
 from .utils import car_to_sph
 
+RE = 6371.2 # reference radius in km
+
 d2r = np.pi/180
 r2d = 180/np.pi
 
@@ -47,6 +49,48 @@ g11.append(g11[-1] + g11sv * 5)
 h11.append(h11[-1] + h11sv * 5)
 igrf_dipole = pd.DataFrame({'g10':np.array(g10), 'g11':np.array(g11), 'h11':np.array(h11)}, index = time)
 igrf_dipole['B0'] = np.sqrt(igrf_dipole['g10']**2 + igrf_dipole['g11']**2 + igrf_dipole['h11']**2)
+
+
+
+def dipole_field(mlat, r, epoch = 2020):
+    """ calculate components of the dipole field in dipole coordinates 
+
+    The dipole moment will be calculated from IGRF coefficients at given epoch
+
+    Parameters
+    ----------
+    mlat : array
+        magnetic latitude (latitude in a system with dipole pole at pole)
+    r : array
+        radius in km
+    epoch : float, optional
+        The dipole moment will be calculated from IGRF coefficients at given epoch
+        default epoch is 2020
+    
+    Returns
+    -------
+    Bn : array
+        dipole field in northward direction, in nT. Same shape as mlat/r
+    Br : array
+        dipole field in radial direction, in nT. Same shape as mlat/r
+    """
+
+    shape = np.broadcast(mlat, r).shape
+    colat = (90 - (mlat * np.ones_like(r)).flatten()) * d2r
+    r    = (np.ones_like(mlat) * r).flatten()
+
+
+    # Find IGRF parameters for given epoch:
+    dipole = igrf_dipole.reindex(list(igrf_dipole.index) + [epoch]).sort_index().interpolate().drop_duplicates() 
+    dipole = dipole.loc[epoch, :]
+
+    B0 = dipole['B0']
+
+    Bn = B0 * (RE / r) ** 3 * np.sin( colat )
+    Br = -2 * B0 * (RE / r) ** 3 * np.cos( colat )
+
+    return Bn.reshape(shape), Br.reshape(shape)
+
 
 
 
