@@ -255,4 +255,80 @@ def geo2mag(glat, glon, Ae = None, An = None, epoch = 2020, deg = True, inverse 
 
 
 
+def generic_dipole_field(r, m, r0 = np.zeros((1, 3))):
+    """ 
+    Evaluate the magnetic field of a dipole with magnetic moment m
+    at coordinates r. 
+
+    Note that we use a normalization common in geomagnetism (Schmidt semi-normalization),
+    so that the magnitude of the magnetic moment vector used here is RE/4pi times the 
+    magnetic moment on Wikipedia*, where RE = 6371200 m. This means that you can pass an
+    m that consists of IGRF coefficients g11, h11, and g10, and get the dipole field.
+
+    *https://en.wikipedia.org/wiki/Magnetic_dipole 
+
+
+    Parameters:
+    -----------
+    r: N x 3 array
+        N coordinates (x, y, z) where field will be evaluated. 
+        Should have units [m]
+    m: 3-element array
+        dipole moment vector
+    r0: 3-element array, optional
+        position of the dipole moment (x, y, z). By default, the
+        dipole is assumed to be located in the origin
+    
+    Returns:
+    --------
+    B: N x 3 array
+        Magnetic field - N Cartesian components
+        
+    """
+
+    g11, h11, g10 = m # get Gauss coefficients
+
+    # convert input to spherical coordinates and reshape to column vectors:
+    radius, theta, phi = map(lambda x: x.reshape((-1, 1)), car_to_sph((r - r0).T))
+    theta, phi = theta * d2r, phi * d2r
+
+
+    # calculate the magnetic field spherical components:
+    rr = (RE * 1e3 / radius) ** 3
+    Br     = 2 * rr * np.cos(theta) * ( g11 * np.cos(phi) + h11 * np.sin(phi) + g10)
+    Btheta =     rr * np.sin(theta) * ( g11 * np.cos(phi) + h11 * np.sin(phi) + g10)
+    Bphi   =    -rr * np.cos(theta) * (-g11 * np.sin(phi) + h11 * np.cos(phi)      ) / np.sin(theta)
+
+    # convert to Cartesian:
+    lon, lat = phi.flatten() / d2r, 90 - theta.flatten() / d2r
+    Bx, By, Bz = enu_to_ecef(np.hstack((Bphi, -Btheta, Br)), lon, lat).T
+
+    return Bx, By, Bz
+
+
+
+if __name__ == '__main__':
+
+    # A test that generic_dipole_field gives results that are consistent with dipole_field
+    ######################################################################################
+    r = (np.random.random((4, 3)) - 1) * 15000e3
+    m = igrf_dipole.loc[2020, ["g11", "h11", "g10"]].values # tilted dipole
+    m = np.array([0, 0, -np.linalg.norm(m)]) # aligned dipole
+
+    Bx, By, Bz = generic_dipole_field(r, m)
+    radius = np.linalg.norm(r, axis = 1)
+    lat = np.arcsin(r[:, 2] / radius) / d2r
+    lon = np.arctan2(r[:, 1], r[:, 0]) / d2r
+
+    Be_, Bn_, Bu_ = ecef_to_enu(np.vstack((Bx, By, Bz)).T, lon, lat).T
+
+    # this should be the same as what I get with the dipole_field function:
+    Bn, Br = dipole_field(lat, radius * 1e-3, epoch = 2020)
+
+    assert np.allclose(Bn, Bn_) & np.allclose(Br, Bu_)
+
+
+
+
+
 
