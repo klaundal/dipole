@@ -272,7 +272,7 @@ def generic_dipole_field(r, m, r0 = np.zeros((1, 3))):
     -----------
     r: N x 3 array
         N coordinates (x, y, z) where field will be evaluated. 
-        Should have units [m]
+        Should have units [km]
     m: 3-element array
         dipole moment vector
     r0: 3-element array, optional
@@ -294,7 +294,7 @@ def generic_dipole_field(r, m, r0 = np.zeros((1, 3))):
 
 
     # calculate the magnetic field spherical components:
-    rr = (RE * 1e3 / radius) ** 3
+    rr = (RE / radius) ** 3
     Br     = 2 * rr * np.cos(theta) * ( g11 * np.cos(phi) + h11 * np.sin(phi) + g10)
     Btheta =     rr * np.sin(theta) * ( g11 * np.cos(phi) + h11 * np.sin(phi) + g10)
     Bphi   =    -rr * np.cos(theta) * (-g11 * np.sin(phi) + h11 * np.cos(phi)      ) / np.sin(theta)
@@ -311,7 +311,7 @@ if __name__ == '__main__':
 
     # A test that generic_dipole_field gives results that are consistent with dipole_field
     ######################################################################################
-    r = (np.random.random((4, 3)) - 1) * 15000e3
+    r = (np.random.random((4, 3)) - 1) * 15000
     m = igrf_dipole.loc[2020, ["g11", "h11", "g10"]].values # tilted dipole
     m = np.array([0, 0, -np.linalg.norm(m)]) # aligned dipole
 
