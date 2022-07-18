@@ -98,6 +98,7 @@ def car_to_sph(car, deg = True):
 
     r = np.sqrt(x**2 + y**2 + z**2)
     theta = np.arccos(z/r)*conv
+    np.seterr(invalid='ignore', divide='ignore')
     phi = ((np.arctan2(y, x)*180/np.pi) % 360)/180*np.pi * conv
 
     return np.vstack((r, theta, phi))
