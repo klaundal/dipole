@@ -671,12 +671,86 @@ class Dipole(object):
 
         return (d1, d2, d3, e1, e2, e3)
 
+    def get_flux(self, lon, lat, R = 6371.2):
+        """ Calculate magnetic flux poleward of one or more closed curves described by lon and lat
 
-    def get_flux(self, lon, lat, dlon = 1., dlat = 0.1, R = 6371.2):
+        The magnetic flux calculation is performed by integrating the analytically calculated expression for
+        latitude-integrated flux over longitude. The integration is carried out using cubic splines.
+        Thanks to Anders Ohma for coming up with this algorithm
+    
+        Note
+        ----
+        This function does not take into account boundaries that are not bijective; each longitude
+        should have only one latitude
+
+
+        Parameters
+        ----------
+        lon : N-element 1D array
+            longitudes [deg] describing the longitudes at the contour(s) that define the area in which
+            we calculate magnetic flux. The array should be strictly increasing, start at 0 and end at 360, 
+            because we use interpolation with periodic boundary conditions defined at lon[0] and lon[-1]
+        lat : M x N element 1D array (or N element 1D array)
+            latitudes [deg] describing M boundaries above which the flux should be calculated. If lat is not
+            already M x N, it must be possible to reshape. 
+        R : float, optional
+            radius [km] at which to calcualte flux. Default is 6371.2 km
+
+        Returns
+        -------
+        flux : array
+            M-element array with magnetic flux poleward of the boundar(y/ies), in Weber
+        """
+
+        try:
+            from scipy.interpolate import CubicSpline
+        except:
+            raise Exception('get_flux: Could not import scipy.interpolate.CubicSpline')
+
+        lon = lon.flatten()
+
+        if np.any(np.diff(lon) < 0):
+            raise ValueError('get_flux: lon should be strictly increasing')
+
+        if not np.allclose([lon[0], lon[-1]-360], 0):
+            print("""Warning: lon is assumed to be periodic at lon[0] and lon[-1]. 
+                     Your input does not start at 0 and end at 360. 
+                     This can cause inaccuracies if the boundary latitudes vary a lot""")
+
+        if np.any(lat < 0):
+            raise ValueError('all latitudes should be > 0')
+
+        M = lat.size / lon.size
+        if not np.isclose(M % 1, 0): # M not integer
+            raise ValueError('lat can not be reshaped to (M, lon.size)')
+
+        M = int(M)
+        if M == 1:
+            lat = lat.flatten()
+        else:
+            lat = lat.reshape((M, lon.size))
+
+        C = d.B0 * 1e-9 * (RE*1e3)** 3 / (R * 1e3) # convert all quantities to SI units
+
+        dflux = CubicSpline(np.deg2rad(lon), 
+                            C * np.cos(np.deg2rad(lat))**2, # flux integrated over latitude
+                            axis = 1, bc_type = 'periodic')
+
+        return dflux.integrate(0, 2 * np.pi)
+
+
+    def get_flux_numerical(self, lon, lat, dlon = 1., dlat = 0.1, R = 6371.2):
         """ Calculate magnetic flux poleward of a closed curve described by lon, lat
 
         The magnetic flux calculation is performed by first interpolating the given boundary points to a constant
-        step size, and then applying Richmond95's Equation 4.15. 
+        step size, then applying Richmond95's Equation 4.15, and then numerically integrate over longitude and
+        latitude. 
+
+        Note
+        ----
+        This function does not take into account boundaries that are not bijective; each longitude
+        should have only one latitude
+
 
         Parameters
         ----------
@@ -740,7 +814,7 @@ if __name__ == '__main__':
     la = la[iii]
 
 
-    d = Dipole(2010)
+    d = Dipole(2020)
     d1, d2, d3, e1, e2, e3 = d.get_apex_base_vectors(la, r, R = R)
     Bn, Br = d.B(la, r)
     BB = np.vstack((np.zeros_like(Bn), Bn, Br))
@@ -779,12 +853,10 @@ if __name__ == '__main__':
 
     print ('testing flux calculation')
     lon = np.linspace(0, 360, 100)
-    # test with constant latitude
-    lat0 = 80
-    lat = np.zeros_like(lon) + lat0
-    flux = d.get_flux(lon, lat, dlon = 0.1, dlat = 0.01, R = R)
-    # compare to the analytical expression, obtained from integrating dipole Br:
-    analytical = 2 * np.pi * d.B0 * 1e-9 * (RE*1e3)** 3 / (R * 1e3) * np.cos(np.deg2rad(lat0))**2
+    lat0s = [80, 70, 40, 20]
+    lats  = np.array([5 * np.cos(4 * np.deg2rad(lon)) + l for l in lat0s])
+    num_flux  = np.array([d.get_flux_numerical(lon, l, dlon = 0.1, dlat = 0.1, R = R) for l in lats])
+    flux      = d.get_flux(lon, lats, R = R)
 
-    assert np.isclose(flux, analytical, rtol = 1e-3)
+    assert np.allclose(np.abs(num_flux - flux)/num_flux, 0, atol = 1e-2)
 
