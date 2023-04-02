@@ -1,0 +1,187 @@
+\documentclass[11pt]{article}
+
+\usepackage{amsmath}
+\usepackage{graphicx}
+\title{Apex coordinates in dipole magnetic field}
+\author{Karl Laundal, karl.laundal@uib.no}
+
+\RequirePackage{lineno}
+\usepackage{natbib}
+\usepackage[toc,page]{appendix}
+
+\begin{document}
+\maketitle
+\modulolinenumbers[2]
+
+\begin{abstract}
+This document presents some fundamental equations for a magnetic dipole model, and the equations for apex base vectors in a dipole field for a spherical Earth. The purpose of this is to be able to easily use the equations developed for apex coordinates with a dipole magnetic field. 
+\end{abstract}
+
+\section{Definitions}
+
+\begin{itemize}
+\item $\lambda$ is the dipole latitude. 
+\item $\phi$ is the dipole longitude
+\item Subscript $ma$ is used to denote Modified Apex (MA) coordinates
+\item Subscript $qd$ is used to dentoe Quasi-Dipole (QD) coordinates
+\item $r$ is the radius (same for dipole, MA, and QD coordinates)
+\item $B_0$ is the reference magnetic field, equal to the norm of a vector formed by the dipole Gauss coefficients: $B_0 = \sqrt{(g_0^1)^2 + (g_1^1)^2 + (h_1^1)^2}$
+\item $R$ is the modified apex reference radius
+\item $R_E=6371.2$~km is the Earth radius
+\end{itemize}
+
+\section{Equation for a dipole}
+The equation for a dipole magnetic field in dipole coordinates is
+\begin{equation}
+\mathbf B (r, \lambda) = B_0\left(\frac{R_E}{r}\right)^3(-2\sin \lambda \hat{\mathbf e}_r + \cos \lambda \hat{ \mathbf e}_\lambda). \label{eq:dipole}
+\end{equation}
+The field magnitude is
+\begin{equation}
+B (r, \lambda) = B_0\left(\frac{R_E}{r}\right)^3\sqrt{4 - 3\cos^2\lambda} \label{eq:dipolestrength}
+\end{equation}
+The equation for a dipole field line is:
+\begin{equation}
+r(\lambda) = r_{eq}\cos^2\lambda
+\end{equation}
+which implies that the apex radius of the field line at $(r, \lambda)$ is
+\begin{equation}
+r_{eq}(r, \lambda) = r/\cos^2\lambda \label{eq:radius}
+\end{equation}
+Equation \ref{eq:dipole} can be written as $\mathbf{B} = -\nabla V$ where the magnetic potential $V$ is:
+\begin{equation}
+V = -B_0 \frac{R_E^3}{r^2}\sin\lambda \label{eq:dipole_potential}
+\end{equation}
+
+
+\section{Conversion}
+Below are equations for converting between dipole, modified apex, and quasi-dipole coordinates for a dipole field. The longitudes are all equal:
+
+\begin{equation}
+\boxed{\phi = \phi_{qd} = \phi_{ma}}
+\end{equation}
+
+\subsection{Modified apex}
+Equation \ref{eq:radius} can be used directly in the equation for modified apex latitude:
+\begin{equation}
+\boxed{\lambda_{ma}(r, \lambda) = \pm \cos^{-1}\sqrt{\left(\frac{R}{r}\right)\cos^2\lambda}.}\label{eq:apexlat}
+\end{equation}
+where $\pm$ refers to the Northern ($+$) and Southern ($-$) hemisphere. The opposite conversion, from $\lambda_{ma}$ to $\lambda$ is
+\begin{equation}
+\boxed{\lambda(r, \lambda_{ma}) = \pm\cos^{-1}\sqrt{\left(\frac{r}{R}\right)\cos^2\lambda_{ma}}.} \label{eq:apex_lat_to_dipole_lat}
+\end{equation}
+
+\subsection{Quasi-dipole}
+For quasi-dipole coordinates, the above equations are the same except that instad of $R$ we trace back to $r$. All the ratios in the parentheses above are 1, so that
+\begin{equation}
+\boxed{\lambda_{qd} = \lambda \hspace{2cm} \forall\hspace{1mm} r}
+\end{equation}
+
+
+
+
+\section{The base vectors}
+From the equations above, we can define base vectors similar to those in \citet{Richmond95}, only that in this case they hold for a dipole magnetic field, and thus they can be found analytically. I will express the vectors in ($E, N, U$)-directions, which here refer to dipole coordinates. All equations below are derived for $\lambda \in [0^\circ, 90^\circ]$, so the sign of $\lambda$ should be changed for points in the Southern hemisphere. $\pm$ and $\mp$ are used to keep track of the sign of each hemisphere (North on top).
+
+\subsection{Modified apex base vectors}
+In a dipole field, the modified apex base vectors are everywhere perpendicular, but they are unit length only at $r=R$. Only at $r=R$ is $\mathbf{d}_i = \mathbf{e}_i$, although they are parallel everywhere, and $\mathbf{d}_i\cdot\mathbf{e}_j = \delta_{ij}$ holds. This is because they are defined to scale differently with the magnetic field.
+
+The modified apex base vectors are defined as (Eqs. 3.8--3.9 in \citet{Richmond95})
+\begin{align}
+\mathbf{d}_1 &=  R\cos \lambda_{ma}\nabla\phi_{ma} \label{eq:d1}\\
+\mathbf{d}_2 &= -R\sin I_{ma}\nabla\lambda_{ma} \label{eq:d2}\\
+\mathbf{d}_3 &= \frac{-\nabla V}{BD} = \frac{\mathbf{d}_1\times\mathbf{d}_2}{\|\mathbf{d}_1\times\mathbf{d}_2\|^2}
+\end{align}
+where the last expression for $\mathbf{d}_3$ can be found using (3.13) and (3.15) in \citet{Richmond95}.
+
+
+
+\subsubsection{$\mathbf{d}_1$}
+The $\mathbf{d}_1$ base vector (Equation \ref{eq:d1}) depends on the gradient of $\phi_{ma} = \phi$. Using (\ref{eq:apexlat}) to replace $\cos\lambda_{ma}$, we get:
+\begin{eqnarray}
+\mathbf{d}_1(r, \lambda) = R\left(\frac{R}{r}\right)^{3/2}\cos\lambda \frac{1}{r\cos\lambda}\frac{\partial \phi}{\partial \phi} \begin{pmatrix} 1\\ 0\\ 0 \end{pmatrix} \\
+\boxed{\mathbf{d}_1(r, \lambda) = \left(\frac{R}{r}\right)^{3/2}\begin{pmatrix}1\\ 0\\ 0\end{pmatrix} }
+\end{eqnarray}
+
+\subsubsection{$\mathbf{d}_2$}
+The $\mathbf{d}_2$ base vector can be found by calculating the gradient of Eq. \ref{eq:apexlat} and inserting the result into the definition (\ref{eq:d2}). We also need to express $\sin I_{ma}$ in terms of $(r, \lambda)$. I start by the latter:
+\begin{align}
+\sin I_{ma} &= 2\sin \lambda_{ma} (4 - 3\cos^2\lambda_{ma})^{-1/2} \nonumber\\
+&= \pm2\sqrt{\frac{1 - \frac{R}{r}\cos^2 \lambda}{4 - 3\frac{R}{r}\cos^2\lambda}}
+\end{align}
+where Equation \ref{eq:apexlat} was used.
+
+The gradient of $\lambda_{ma}$ can be written
+\begin{align}
+\nabla\lambda_{ma} =& \pm\begin{pmatrix} 0\\
+\frac{1}{r}\frac{\partial}{\partial \lambda}\\
+\frac{\partial}{\partial r} \end{pmatrix}\left[\cos^{-1}\sqrt{\left(\frac{R}{r}\right)\cos^2\lambda}\right]\nonumber\\ 
+=& \pm\begin{pmatrix} 0\\
+\sqrt{\frac{R}{r}}\frac{\sin\lambda}{r\sqrt{1-\frac{R}{r}\cos^2\lambda}}\\
+\sqrt{\frac{R}{r}}\frac{\cos\lambda}{2r\sqrt{1 - \frac{R}{r}\cos^2\lambda}}
+\end{pmatrix} = \pm\frac{\sqrt{R/r}}{r\sqrt{1 - \frac{R}{r}\cos^2\lambda}}\begin{pmatrix} 0\\
+\sin\lambda\\
+\cos\lambda/2
+\end{pmatrix}
+\end{align}
+Inserting this expression, and the expression for $\sin I_{ma}$ into the definition of $\mathbf{d}_2$ (\ref{eq:d2}) we get
+\begin{equation}
+\boxed{\mathbf{d}_2(r, \lambda) = \mp\left(\frac{R}{r}\right)^{3/2}\left(4 - 3\frac{R}{r}\cos^2\lambda\right)^{-1/2}\left(\begin{array}{c}
+0\\
+2\sin \lambda\\
+\cos \lambda\\
+\end{array}\right)}
+\end{equation}
+This expression can be used to confirm that $\|\mathbf{d}_2(r = R, \lambda)\| = 1$, as it should be for a dipole field and spherical Earth.
+
+\subsection{$\mathbf{d}_3$}
+The last base vector can be found by crossing $\mathbf{d}_1$ and $\mathbf{d}_2$. Multiplication of the scalar coefficients give:
+\begin{equation}
+\mp\left(\frac{R}{r}\right)^{3}\left(4 - 3\frac{R}{r}\cos^2\lambda\right)^{-1/2}, \nonumber
+\end{equation}
+and crossing the vector parts give
+\begin{align}
+\left( \begin{array}{c}
+1\\
+0\\
+0\end{array} \right) \times \left(\begin{array}{c}
+0\\
+2\sin \lambda\\
+\cos \lambda\\
+\end{array}\right) = \left(\begin{array}{c}
+0\\
+-\cos \lambda\\
+2\sin \lambda\\
+\end{array}\right)
+\end{align}
+We calculate the quantity $D = \|\mathbf{d}_1\times\mathbf{d}_2\|$:
+\begin{equation}
+D =\left(\frac{R}{r}\right)^{3}\sqrt{\frac{4 - 3\cos^2\lambda}{4 - 3\frac{R}{r}\cos^2\lambda}}
+\end{equation}
+The $\mathbf{d}_3$ base vector is
+\begin{equation}
+\boxed{\mathbf{d}_3(r, \lambda) = \left(\frac{r}{R}\right)^3\frac{\sqrt{4 - 3\frac{R}{r}\cos^2\lambda}}{4 - 3\cos^2\lambda}\left(\begin{array}{c}
+0\\
+\cos \lambda\\
+-2\sin \lambda\\
+\end{array}\right)}
+\end{equation}
+which is parallel to the dipole field. $B_{e_3}$ is supposed to be constant along a field line, so we can now check that this is true, by calculating
+\begin{equation}
+B_{e_3} = \mathbf{B}\cdot\mathbf{d}_3 = B_0\left(\frac{R_E}{R}\right)^3\sqrt{4-3R/r_{eq}}
+\end{equation}
+which is constant. $B_{e_3}$ should be equal to $B/D$. Let's check that also:
+\begin{equation}
+B/D = \frac{B_0\left(\frac{R_E}{r}\right)^3\sqrt{4 - 3\cos^2\lambda}} {\left(\frac{R}{r}\right)^3\sqrt{\frac{4 - 3\cos^2\lambda}{4 - 3\frac{R}{r}\cos^2\lambda}}} = B_0\left(\frac{R_E}{R}\right)^3\sqrt{4-3R/r_{eq}}
+\end{equation}
+as expected. Also, at $r = R$, $B_{e_3}$ is the magnetic field strength. This can be seen by replacing $r_{eq}$ with $r/\cos^2\lambda$, and $r$ by $R$. 
+
+
+%\begin{thebibliography}{}
+\bibliographystyle{plainnat}
+\bibliography{bibdata}
+%\end{thebibliography}
+
+
+
+
+\end{document}

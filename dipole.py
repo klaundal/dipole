@@ -4,12 +4,16 @@ Dipole class - Calculate parameters that involve the Earth's magnetic dipole
 The Dipole class is initialized with an epoch (decimal year) that is used to
 get the relevant dipole Gauss coefficients from the IGRF coefficients. After initialization,
 the following methods are available (all are vectorized):
- * B(lat, r)            - calculate dipole magnetic field values
- * tilt(times)          - calculate dipole tilt angle for one or more times
- * geo2mag(lat, lon)    - convert from geocentric to centered dipole coords and components 
- * mag2geo(lat, lon)    - convert from centered dipole to geocentric coords and components
- * mlt2mlon(mlt , time) - convert magnetic local time to magnetic longitude
- * mlon2mlt(mlon, time) - convert magnetic longitude to magnetic local time
+ * B(lat, r)                                 - calculate dipole magnetic field values
+ * tilt(times)                               - calculate dipole tilt angle for one or more times
+ * geo2mag(lat, lon)                         - convert from geocentric to centered dipole coords and components 
+ * mag2geo(lat, lon)                         - convert from centered dipole to geocentric coords and components
+ * mlt2mlon(mlt , time)                      - convert magnetic local time to magnetic longitude
+ * mlon2mlt(mlon, time)                      - convert magnetic longitude to magnetic local time
+ * get_apex_base_vectors(lat, r, R = 6371.2) - get apex basis vectors appropriate for dipole field **not using full IGRF**
+ * get_flux(lon, lat)                        - calculate magnetic flux inside boundar(y/ies) defined by lon, lat 
+ * get_flux_numerical(lon, lat)              - alternative way to calculate flux (but only for one boundary at a time)
+
 
 and the following parameters:
  * north_pole - dipole pole position in northern hemisphere
@@ -37,7 +41,7 @@ d2r = np.pi/180
 r2d = 1/d2r
 
 RE = 6371.2 # reference radius in km
-
+MU0 = 4 * np.pi * 1e-7
 
 # HELPER FUNCTIONS - SPHERICAL COORDINATES
 ##########################################
@@ -365,7 +369,7 @@ class Dipole(object):
         """
 
         shape = np.broadcast(lat, r).shape
-        colat = (90 - (lat * np.ones_like(r)).flatten()) * d2r
+        colat = np.deg2rad(90 - (lat * np.ones_like(r)).flatten())
         r    = (np.ones_like(lat) * r).flatten()
 
         Bn = self.B0 * (RE / r) ** 3 * np.sin( colat )
@@ -606,4 +610,257 @@ class Dipole(object):
         mlon = (15 * mlt - 180 + ssqlon + 360) % 360
 
         return mlon.reshape(shape)
+
+
+    def get_apex_base_vectors(self, lat, r, R = 6371.2):
+        """ Calculate apex coordinate base vectors d_i and e_i (i = 1, 2, 3)
+
+        The base vectors are defined in Richmond (1995). They can be calculated analytically
+        for a dipole magnetic field and spherical Earth. 
+
+        The output vectors will have shape (3, N) where N is the combined size of the input,
+        after numpy broadcasting. The three rows correspond to east, north and radial components
+        for a spherical Earth
+
+        Note
+        ----
+        This function only calculates Modified Apex base vectors. QD base vectors f_i and g_i are 
+        just eastward, northward, and radial unit vectors for a dipole field (and f_i = g_i)
+            
+        Parameters
+        ----------
+        r : array-like
+            radii of the points where the base vectors shall be calculated, in same unit as R
+        lat : array-like
+            centered dipole latitude [deg] of the points where the base vectors shall be calculated
+        R : float, optional
+            Reference radius used in modified apex coordinates. Default is 6371.2 km
+
+        Returns
+        -------
+        d1 : array-like
+            modified apex base vector d1 for a dipole magnetic field, shape (3, N)
+        d2 : array-like
+            modified apex base vector d2 for a dipole magnetic field, shape (3, N)
+        d3 : array-like
+            modified apex base vector d3 for a dipole magnetic field, shape (3, N)
+        e1 : array-like
+            modified apex base vector e1 for a dipole magnetic field, shape (3, N)
+        e2 : array-like
+            modified apex base vector e2 for a dipole magnetic field, shape (3, N)
+        e3 : array-like
+            modified apex base vector e3 for a dipole magnetic field, shape (3, N)
+        """
+        try:
+            r, la = map(np.ravel, np.broadcast_arrays(r, lat))
+        except:
+            raise ValueError('get_apex_base_vectors: Input not broadcastable')
+
+        la = np.deg2rad(la)
+        if np.any(r / np.cos(la)**2 < R):
+            raise ValueError('get_apex_base_vectors: Some points have apex height < R. Apex height is r/cos(lat)**2.')
+
+        N = r.size
+
+        R2r = R / r 
+        C   = np.sqrt(4 - 3 * R2r * np.cos(la)**2)
+        
+        d1 =  R2r ** (3./2) * np.vstack((np.ones(N), np.zeros(N), np.zeros(N)))
+        d2 = -np.sign(la) * R2r ** (3./2) / C * np.vstack((np.zeros(N), 2 * np.sin(la), np.cos(la)))
+        d3 =  R2r ** (-3) * C / (4 - 3 * np.cos(la)**2) * np.vstack((np.zeros(N), np.cos(la), -2*np.sin(la)))
+
+        e1 = np.cross(d2.T, d3.T).T
+        e2 = np.cross(d3.T, d1.T).T
+        e3 = np.cross(d1.T, d2.T).T
+
+        return (d1, d2, d3, e1, e2, e3)
+
+    def get_flux(self, lon, lat, R = 6371.2):
+        """ Calculate magnetic flux poleward of one or more closed curves described by lon and lat
+
+        The magnetic flux calculation is performed by integrating the analytically calculated expression for
+        latitude-integrated flux over longitude. The integration is carried out using cubic splines.
+        Thanks to Anders Ohma for coming up with this algorithm
+    
+        Note
+        ----
+        This function does not take into account boundaries that are not bijective; each longitude
+        should have only one latitude
+
+
+        Parameters
+        ----------
+        lon : N-element 1D array
+            longitudes [deg] describing the longitudes at the contour(s) that define the area in which
+            we calculate magnetic flux. The array should be strictly increasing, start at 0 and end at 360, 
+            because we use interpolation with periodic boundary conditions defined at lon[0] and lon[-1]
+        lat : M x N element 1D array (or N element 1D array)
+            latitudes [deg] describing M boundaries above which the flux should be calculated. If lat is not
+            already M x N, it must be possible to reshape. 
+        R : float, optional
+            radius [km] at which to calcualte flux. Default is 6371.2 km
+
+        Returns
+        -------
+        flux : array
+            M-element array with magnetic flux poleward of the boundar(y/ies), in Weber
+        """
+
+        try:
+            from scipy.interpolate import CubicSpline
+        except:
+            raise Exception('get_flux: Could not import scipy.interpolate.CubicSpline')
+
+        lon = lon.flatten()
+
+        if np.any(np.diff(lon) < 0):
+            raise ValueError('get_flux: lon should be strictly increasing')
+
+        if not np.allclose([lon[0], lon[-1]-360], 0):
+            print("""Warning: lon is assumed to be periodic at lon[0] and lon[-1]. 
+                     Your input does not start at 0 and end at 360. 
+                     This can cause inaccuracies if the boundary latitudes vary a lot""")
+
+        if np.any(lat < 0):
+            raise ValueError('all latitudes should be > 0')
+
+        M = lat.size / lon.size
+        if not np.isclose(M % 1, 0): # M not integer
+            raise ValueError('lat can not be reshaped to (M, lon.size)')
+
+        M = int(M)
+        if M == 1:
+            lat = lat.flatten()
+        else:
+            lat = lat.reshape((M, lon.size))
+
+        C = d.B0 * 1e-9 * (RE*1e3)** 3 / (R * 1e3) # convert all quantities to SI units
+
+        dflux = CubicSpline(np.deg2rad(lon), 
+                            C * np.cos(np.deg2rad(lat))**2, # flux integrated over latitude
+                            axis = 1, bc_type = 'periodic')
+
+        return dflux.integrate(0, 2 * np.pi)
+
+
+    def get_flux_numerical(self, lon, lat, dlon = 1., dlat = 0.1, R = 6371.2):
+        """ Calculate magnetic flux poleward of a closed curve described by lon, lat
+
+        The magnetic flux calculation is performed by first interpolating the given boundary points to a constant
+        step size, then applying Richmond95's Equation 4.15, and then numerically integrate over longitude and
+        latitude. 
+
+        Note
+        ----
+        This function does not take into account boundaries that are not bijective; each longitude
+        should have only one latitude
+
+
+        Parameters
+        ----------
+        lon : array
+            longitudes [deg] describing the closed contour poleward of which we calculate magnetic flux
+        lat : array
+            latitudes [deg] describing the closed contour poleward of which we calculate magnetic flux
+        dlon : float, optional
+            longitude resolution to use in the integral. Default is 1 degree
+        dlat: float, optional
+            latitude resolution to use in the integral. Default is 0.1 degree
+        R : float, optional
+            radius [km] at which to calcualte flux. Default is 6371.2 km
+
+        Returns
+        -------
+        flux : float
+            Magnetic flux poleward of the boundary, in Weber
+        """
+
+        assert np.all(lat >= 0) # only use positive latitudes
+        lon, lat = map(np.ravel, np.broadcast_arrays(lon, lat)) 
+
+        N = np.int32(360 / dlon) + 1 # number of points in longitude direction
+        lonxx = np.linspace(0, 360, N) # longitude coordinate
+        boundary = np.interp(lonxx, lon, lat, period = 360) # interpolate input to constant step size
+
+        minlat = lat.min()
+        latxx = np.r_[90 - dlat/2:minlat:-dlat][::-1] # latitude integration steps
+
+        d1, d2, d3, e1, e2, e3 = self.get_apex_base_vectors(latxx, R, R = R) # get Apex base vectors
+        Bn, Br = self.B(latxx, R)
+        Be3 = d3[1] * Bn + d3[2] * Br 
+        Be3 = Be3 * 1e-9 # nT -> T
+
+        # in the equations below, I use expressions appropriate for apex coordinates, which is ok since we
+        # use apex reference radius equal to evaluation radius
+        sinIm = 2 * np.sin(np.deg2rad(latxx)) / np.sqrt(4 - 3 * np.cos(np.deg2rad(latxx))**2)
+        dF = (R * 1e3)**2 * np.cos(np.deg2rad(latxx)) * np.abs(sinIm) * Be3 * np.deg2rad(dlon) * np.deg2rad(dlat) # flux per lon and lat according to Richmond95 Eq 4.15
+        dF = np.tile(dF, (lonxx.size, 1))
+        dF[latxx.reshape((1, -1)) < boundary.reshape((-1, 1))] = 0 # mask elements equatorward of boundary
+
+        return( np.sum(dF) )
+
+
+
+
+if __name__ == '__main__':
+
+    print('Running tests on apex base vectors')
+    N = 1000 # number of points in random cloud
+    R = 6371.2+200 # apex reference height
+    x, y, z = np.random.random(N), np.random.random(N), np.random.random(N)
+    iii = x**2 + y**2 + z**2 <= 1
+    r  = np.sqrt(x**2 + y**2 + z**2)[iii]
+    la = np.rad2deg(np.arcsin(z[iii] / r))
+    r = R * (1 + r)
+
+    iii = r / np.cos(np.deg2rad(la))**2 >= R
+    r = r[iii]
+    la = la[iii]
+
+
+    d = Dipole(2020)
+    d1, d2, d3, e1, e2, e3 = d.get_apex_base_vectors(la, r, R = R)
+    Bn, Br = d.B(la, r)
+    BB = np.vstack((np.zeros_like(Bn), Bn, Br))
+
+    # test orthogonality properties
+    assert np.allclose(np.abs(np.sum(d1*d2, axis = 0)), 0)
+    assert np.allclose(np.abs(np.sum(d1*d3, axis = 0)), 0)
+    assert np.allclose(np.abs(np.sum(d2*d3, axis = 0)), 0)
+    assert np.allclose(np.abs(np.sum(e1*e2, axis = 0)), 0)
+    assert np.allclose(np.abs(np.sum(e1*e3, axis = 0)), 0)
+    assert np.allclose(np.abs(np.sum(e2*e3, axis = 0)), 0)
+    assert np.allclose(np.abs(np.sum(d1*e2, axis = 0)), 0)
+    assert np.allclose(np.abs(np.sum(d1*e3, axis = 0)), 0)
+    assert np.allclose(np.abs(np.sum(d2*e1, axis = 0)), 0)
+    assert np.allclose(np.abs(np.sum(d2*e3, axis = 0)), 0)
+    assert np.allclose(np.abs(np.sum(d3*e1, axis = 0)), 0)
+    assert np.allclose(np.abs(np.sum(d3*e2, axis = 0)), 0)
+    assert np.allclose(np.linalg.norm(np.cross(e3.T, BB.T), axis = 1), 0) # e3 perpendicular to B
+    assert np.allclose(np.linalg.norm(np.cross(d3.T, BB.T), axis = 1), 0) # d3 perpendicular to B
+    assert np.all(np.sum(d3 * BB, axis = 0) > 0) # e3 along B
+    assert np.all(np.sum(e3 * BB, axis = 0) > 0) # d3 along B
+
+    # test scaling properties
+    la = -np.linspace(1e-3, .7 * np.pi/2, 100)
+    req = 10*R
+    r = req * np.cos(la)**2
+    d1, d2, d3, e1, e2, e3 = d.get_apex_base_vectors(np.rad2deg(la), r, R = R)
+    Bn, Br = d.B(np.rad2deg(la), r)
+    BB = np.vstack((np.zeros_like(Bn), Bn, Br))
+    Be3 = d3[1] * Bn + d3[2] * Br # should be constant since all d3 are on same field line
+    D = np.linalg.norm(np.cross(d1.T, d2.T), axis = 1) # B / D should be equal to Be3
+    B = np.sqrt(Bn**2 + Br**2)
+
+    assert np.allclose(Be3 - B/D, 0)
+    assert np.allclose(Be3 - Be3[0], 0)
+
+    print ('testing flux calculation')
+    lon = np.linspace(0, 360, 100)
+    lat0s = [80, 70, 40, 20]
+    lats  = np.array([5 * np.cos(4 * np.deg2rad(lon)) + l for l in lat0s])
+    num_flux  = np.array([d.get_flux_numerical(lon, l, dlon = 0.1, dlat = 0.1, R = R) for l in lats])
+    flux      = d.get_flux(lon, lats, R = R)
+
+    assert np.allclose(np.abs(num_flux - flux)/num_flux, 0, atol = 1e-2)
 
