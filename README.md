@@ -6,6 +6,8 @@ Python code to calculate
 - centered dipole coordinates and vector components
 - magnetic local time
 - dipole pole locations
+- magnetic flux poleward of some boundary
+- apex base vectors for a dipole magnetic field
 
 The calculations use time-dependendent IGRF coefficients (see https://www.ngdc.noaa.gov/IAGA/vmod/igrf.html for details and https://doi.org/10.1186/s40623-020-01163-9 for even more details) accessed through the ppigrf Python module (https://github.com/klaundal/ppigrf).
 
