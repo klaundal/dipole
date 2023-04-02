@@ -11,6 +11,9 @@ the following methods are available (all are vectorized):
  * mlt2mlon(mlt , time)                      - convert magnetic local time to magnetic longitude
  * mlon2mlt(mlon, time)                      - convert magnetic longitude to magnetic local time
  * get_apex_base_vectors(lat, r, R = 6371.2) - get apex basis vectors appropriate for dipole field **not using full IGRF**
+ * get_flux(lon, lat)                        - calculate magnetic flux inside boundar(y/ies) defined by lon, lat 
+ * get_flux_numerical(lon, lat)              - alternative way to calculate flux (but only for one boundary at a time)
+
 
 and the following parameters:
  * north_pole - dipole pole position in northern hemisphere
@@ -832,8 +835,8 @@ if __name__ == '__main__':
     assert np.allclose(np.abs(np.sum(d2*e3, axis = 0)), 0)
     assert np.allclose(np.abs(np.sum(d3*e1, axis = 0)), 0)
     assert np.allclose(np.abs(np.sum(d3*e2, axis = 0)), 0)
-    assert np.allclose(np.linalg.norm(np.cross(e3.T, d3.T), axis = 1), 0) # e3 perpendicular to B
-    assert np.allclose(np.linalg.norm(np.cross(e3.T, BB.T), axis = 1), 0) # d3 perpendicular to B
+    assert np.allclose(np.linalg.norm(np.cross(e3.T, BB.T), axis = 1), 0) # e3 perpendicular to B
+    assert np.allclose(np.linalg.norm(np.cross(d3.T, BB.T), axis = 1), 0) # d3 perpendicular to B
     assert np.all(np.sum(d3 * BB, axis = 0) > 0) # e3 along B
     assert np.all(np.sum(e3 * BB, axis = 0) > 0) # d3 along B
 
