@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm[toml]"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dipole"
+dynamic = ["version"]
+dependencies = [
+    "numpy",
+    "pandas",
+    "ppigrf",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools_scm]
