@@ -1,1 +1,0 @@
-from .dipole import Dipole
