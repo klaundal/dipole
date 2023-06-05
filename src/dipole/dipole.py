@@ -14,6 +14,8 @@ the following methods are available (all are vectorized):
  * get_flux(lon, lat)                        - calculate magnetic flux inside boundar(y/ies) defined by lon, lat 
  * get_flux_numerical(lon, lat)              - alternative way to calculate flux (but only for one boundary at a time)
 
+Note: As an alterntive to the epoch initialization, the dipole pole location and reference magnetic field can be specified
+      manually. This allows for conversions of coordinates and components between arbitrary spherical coordinate systems.
 
 and the following parameters:
  * north_pole - dipole pole position in northern hemisphere
@@ -290,55 +292,86 @@ def subsol(datetimes):
 # DIPOLE CLASS
 ##############
 class Dipole(object):
-    def __init__(self, epoch = 2020.):
+    def __init__(self, epoch = 2020., dipole_pole = None, B0 = None):
         """ Initialize Dipole object
 
         Parameters
         ----------
         epoch: float, optional
             epoch for IGRF dipole Gauss coefficients in decimal year. 
-            Must be scalar. Default is 2020.
+            Must be scalar. Default is 2020. The dipole pole location and the 
+            reference magnetic field B0 will be calculated from the IGRF coefficients
+            for the given epoch. 
+        dipole_pole: tuple, optional
+            dipole pole location in geocentric coordinates, as a tuple of (latitude, longitude) in 
+            degrees. If specified, it will override the epoch parameter. Default is that it is not 
+            given, and that the dipole pole is determined by the IGRF coefficients for given epoch. 
+            If B0 is specified, but dipole_pole is not, dipole_pole will be set to (90, 0)
+        B0: scalar, optional
+            reference magnetic field in nT. If specified, it will override the epoch parameter. 
+            Default is that it is not given, and that the reference magnetic field is 
+            from IGRF coefficients for given epoch. If dipole_pole is specified, but B0 is not, 
+            B0 will be set to 1. 
         """
 
-        if np.array(epoch).size != 1:
-            raise Exception('epoch must be scalar')
+        if dipole_pole is None and B0 is None: # Calculate dipole parameters from IGRF
+            if np.array(epoch).size != 1:
+                raise Exception('epoch must be scalar')
 
-        # read coefficient file:
-        g, h = read_shc()
+            # read coefficient file:
+            g, h = read_shc()
 
-        date = yearfrac_to_datetime(np.array([epoch]))
+            date = yearfrac_to_datetime(np.array([epoch]))
 
-        if (date > g.index[-1]) or (date < g.index[0]):
-            print('Warning: You provided date(s) not covered by coefficient file \n({} to {})'.format(
-                  g.index[0].date(), g.index[-1].date()))
+            if (date > g.index[-1]) or (date < g.index[0]):
+                print('Warning: You provided date(s) not covered by coefficient file \n({} to {})'.format(
+                      g.index[0].date(), g.index[-1].date()))
 
-        # Interpolate IGRF coefficients to the given epoch:
-        index = g.index.union(date)
-        g = g.reindex(index).groupby(index).first() # reindex and skip duplicates
-        h = h.reindex(index).groupby(index).first() # reindex and skip duplicates
-        g = g.interpolate(method = 'time').loc[date, :]
-        h = h.interpolate(method = 'time').loc[date, :]
+            # Interpolate IGRF coefficients to the given epoch:
+            index = g.index.union(date)
+            g = g.reindex(index).groupby(index).first() # reindex and skip duplicates
+            h = h.reindex(index).groupby(index).first() # reindex and skip duplicates
+            g = g.interpolate(method = 'time').loc[date, :]
+            h = h.interpolate(method = 'time').loc[date, :]
 
-        self.date = date
-        self.epoch = epoch
+            # Select dipole coefficicents
+            g10, g11, h11 = g[(1, 0)].values[0], g[(1, 1)].values[0], h[(1, 1)].values[0]
 
-        # Select dipole coefficicents
-        self.g10, self.g11, self.h11 = g[(1, 0)].values[0], g[(1, 1)].values[0], h[(1, 1)].values[0]
+            # Reference magnetic field:
+            self.B0 = np.sqrt(g10**2 + g11**2 + h11**2)
 
-        # Reference magnetic field:
-        self.B0 = np.sqrt(self.g10**2 + self.g11**2 + self.h11**2)
+            # Unit vector pointing to dipole pole in the north (negative dipole axis in physics convention) 
+            self.axis = -np.hstack((g11, h11, g10))/self.B0
 
-        # Unit vector pointing to dipole pole in the north (negative dipole axis in physics convention) 
-        self.axis = -np.hstack((self.g11, self.h11, self.g10))/self.B0
+            # Pole locations:
+            colat, longitude = car_to_sph( self.axis.reshape((-1, 1)), deg = True)[1:]
+            self.north_pole = np.array((  90 - colat, longitude) ).flatten()
+            self.south_pole = np.array((- 90 + colat, (longitude + 180) % 360)).flatten()
 
-        # Pole locations:
-        colat, longitude = car_to_sph( self.axis.reshape((-1, 1)), deg = True)[1:]
-        self.north_pole = np.array((  90 - colat, longitude) ).flatten()
-        self.south_pole = np.array((- 90 + colat, (longitude + 180) % 360)).flatten()
+            self.string_representation = 'Dipole object for epoch {}'.format(str(date[0].date()))
+
+        else:
+            if dipole_pole is None:
+                dipole_pole = (90, 0) # default value if B0 is specified
+            if B0 is None:
+                B0 = 1 # default value if dipole_pole is specified
+
+            self.B0 = B0
+
+            self.north_pole = np.array(( dipole_pole[0],  dipole_pole[1]))
+            self.south_pole = np.array((-dipole_pole[0], (dipole_pole[1] + 180) % 360))
+
+            # calculate dipole axis
+            ph, th = np.deg2rad(self.north_pole[1]), np.deg2rad(90 - self.north_pole[0])
+            self.axis = np.hstack((np.sin(th) * np.cos(ph), np.sin(th) * np.sin(ph), np.cos(th)))
+
+            self.string_representation = 'Dipole object, user-specified pole at {} degrees and B0 = {} nT'.format(dipole_pole, B0)
+
+
 
 
     def __str__(self):
-        return 'Dipole object for epoch {}'.format(str(self.date[0].date()))
+        return self.string_representation
 
     def __repr__(self):
         return str(self)
@@ -863,4 +896,28 @@ if __name__ == '__main__':
     flux      = d.get_flux(lon, lats, R = R)
 
     assert np.allclose(np.abs(num_flux - flux)/num_flux, 0, atol = 1e-2)
+
+    # Test the user-specified pole: First use current dipole object to rotate a bunch a of eastward unit
+    # vectors to geographic. Then make a new dipole object with same pole location to rotate back.
+    print('Testing coordinate conversion with user-specified dipole location')
+
+    x, y, z = np.random.random(N), np.random.random(N), np.random.random(N)
+    iii = x**2 + y**2 + z**2 <= 1
+    r  = np.sqrt(x**2 + y**2 + z**2)[iii]
+    lat = np.rad2deg(np.arcsin(z[iii] / r))
+    lon = np.rad2deg(np.arctan2(y[iii], x[iii]))
+
+    gla, glo, gAe, gAn = d.mag2geo(lat, lon, Ae = np.ones(np.sum(iii)), An = np.zeros(np.sum(iii)))
+    print(d)
+
+    pole_location = d.north_pole
+    B0 = d.B0
+    dd = Dipole(dipole_pole = pole_location, B0 = B0)
+    lat_, lon_, Ae_, An_ = dd.geo2mag(gla, glo, Ae = gAe, An = gAn)
+    assert np.allclose(lat_ - lat, 0)
+    assert np.allclose(Ae_, 1)
+    assert np.allclose(An_, 0)
+    print(dd)
+
+
 
