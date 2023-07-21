@@ -837,7 +837,7 @@ class Dipole(object):
         else:
             lat = lat.reshape((M, lon.size))
 
-        C = d.B0 * 1e-9 * (RE*1e3)** 3 / (R * 1e3) # convert all quantities to SI units
+        C = self.B0 * 1e-9 * (RE*1e3)** 3 / (R * 1e3) # convert all quantities to SI units
 
         dflux = CubicSpline(np.deg2rad(lon), 
                             C * np.cos(np.deg2rad(lat))**2, # flux integrated over latitude
