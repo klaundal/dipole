@@ -774,6 +774,76 @@ class Dipole(object):
             basevectors_g.append(np.vstack((east, north, b[2])))
 
         return tuple(basevectors_g)
+    
+    def map_vperp(self, lon, lat, alt, v, alt_target, R = 6371.2):
+        '''
+        Function that takes in a set of N velocity vectors (v) and its location (lon,lat,alt), 
+        and map the part of the vector that is perpendicular to the dipole field to the 
+        desired altitude, alt_target.
+
+        Parameters
+        ----------
+        lon : array-like
+            geocentric longitude [deg] of the points where the vector is to be mapped from
+        lat : array-like
+            geocentric latitude [deg] of the points where the vector is to be mapped from
+        alt : array-like
+            altitude of the points where the vector is to be mapped from, in same unit as R
+        v : 2D array
+            Contain the ENU geographic components of the vel. vector to be mapped, with shape (3,N)
+        alt_target : array-like
+            altitude of the mapped locations, in same unit as R. Must be of same length as alt
+        R : float, optional
+            Reference radius used in modified apex coordinates. Default is 6371.2 km
+
+        Returns
+        -------
+        lon_target : array-like
+            geographic longitude [deg] of the mapped location
+        lat_target : array-like
+            geographic latitude [deg] of the mapped location
+        vperpe : array-like
+            geographic east component of the mapped vector
+        vperpn : array-like
+            geographic north component of the mapped vector
+        vperpu : array-like
+            geographic up component of the mapped vector
+            modified apex base vector d1 for a dipole magnetic field, shape (3, N)
+        '''
+
+        r = R + alt
+        r_target = R + alt_target
+
+        # Centered Dipole input locations
+        mlat, mlon = self.geo2mag(lat, lon)
+
+        # Calculate the mapped locations. Map from observed location (r) 
+        # to the target height (target_r) using dipole formula
+        colat_r = 90-mlat
+        colat_target = np.arcsin(np.sin(np.radians(colat_r)) * np.sqrt(r_target/r))
+        mlat_target = 90 - np.degrees(colat_target)
+        mlon_target = mlon # in degrees
+
+        # Geocentric coordinates of the mapped locations
+        lat_target, lon_target = self.mag2geo(mlat_target, mlon_target)
+
+        # Get base vectors at input altitudes, r
+        d1, d2, d3, _1, _2, _3 = self.get_apex_base_vectors_geo(lon, lat, r, R=R)
+        
+        #Calculate the quantities that is constant along the field-lines
+        ve1 = (d1[0,:]*v[0,:] + d1[1,:]*v[1,:] + d1[2,:]*v[2,:])
+        ve2 = (d2[0,:]*v[0,:] + d2[1,:]*v[1,:] + d2[2,:]*v[2,:])
+
+        # Calculate basis vectors at the mapped locations
+        _1, _2, _3, e1, e2, e3 = self.get_apex_base_vectors_geo(lon_target, lat_target, r_target, R=R)
+
+        
+        #Calculate the mapped velocity using eq 4.17 in Richmond 1995. geographic components, ENU            
+        vperpmappede = (ve1.flatten()*e1[0,:] + ve2.flatten()*e2[0,:])
+        vperpmappedn = (ve1.flatten()*e1[1,:] + ve2.flatten()*e2[1,:])
+        vperpmappedu = (ve1.flatten()*e1[2,:] + ve2.flatten()*e2[2,:])
+
+        return (lon_target, lat_target, vperpmappede, vperpmappedn, vperpmappedu)     
 
     def map_E(self, lon, lat, r, E, target_r):
         pass
