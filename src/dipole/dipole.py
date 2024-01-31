@@ -560,9 +560,9 @@ class Dipole(object):
 
         Returns
         -------
-        cdlat : array
+        gclat : array
             array of geocentric latitudes [degrees]
-        cdlon : array
+        gcon : array
             array of geocentric longitudes [degrees]
         Ae_cd : array
             array of eastward vector components in geocentric
@@ -653,7 +653,8 @@ class Dipole(object):
 
         The output vectors will have shape (3, N) where N is the combined size of the input,
         after numpy broadcasting. The three rows correspond to east, north and radial components
-        for a spherical Earth
+        for a spherical Earth. The components are given in dipole coordinates (unlike in e.g., 
+        apexpy where they are given in geodetic coordinates)
 
         Note
         ----
@@ -683,7 +684,12 @@ class Dipole(object):
             modified apex base vector e2 for a dipole magnetic field, shape (3, N)
         e3 : array-like
             modified apex base vector e3 for a dipole magnetic field, shape (3, N)
+
+        See also
+        --------
+        get_apex_base_vectors_geo: same as get_apex_base_vectors but input and output in geocentric coords
         """
+
         try:
             r, la = map(np.ravel, np.broadcast_arrays(r, lat))
         except:
@@ -707,6 +713,140 @@ class Dipole(object):
         e3 = np.cross(d1.T, d2.T).T
 
         return (d1, d2, d3, e1, e2, e3)
+
+    def get_apex_base_vectors_geo(self, lon, lat, r, R = 6371.2):
+        """ Calculate apex coordinate base vectors d_i and e_i (i = 1, 2, 3)
+
+        The base vectors are defined in Richmond (1995). They can be calculated analytically
+        for a dipole magnetic field and spherical Earth. 
+
+        The output vectors will have shape (3, N) where N is the combined size of the input,
+        after numpy broadcasting. The three rows correspond to east, north and radial components
+        for a spherical Earth. The components are given in geocentric coordinates
+
+        Note
+        ----
+        This function only calculates Modified Apex base vectors. In dipole coordinates, 
+        QD base vectors f_i and g_i are just eastward, northward, and radial unit vectors 
+        for a dipole field (and f_i = g_i). To calculate these vectors in geocentric coordinates,
+        convert the unit vectors with mag2geo. 
+            
+        Parameters
+        ----------
+        r : array-like
+            radii of the points where the base vectors shall be calculated, in same unit as R
+        lon : array-like
+            geocentric longitude [deg] of the points where the base vectors shall be calculated
+        lat : array-like
+            geocentric latitude [deg] of the points where the base vectors shall be calculated
+        R : float, optional
+            Reference radius used in modified apex coordinates. Default is 6371.2 km
+
+        Returns
+        -------
+        d1 : array-like
+            modified apex base vector d1 for a dipole magnetic field, shape (3, N)
+        d2 : array-like
+            modified apex base vector d2 for a dipole magnetic field, shape (3, N)
+        d3 : array-like
+            modified apex base vector d3 for a dipole magnetic field, shape (3, N)
+        e1 : array-like
+            modified apex base vector e1 for a dipole magnetic field, shape (3, N)
+        e2 : array-like
+            modified apex base vector e2 for a dipole magnetic field, shape (3, N)
+        e3 : array-like
+            modified apex base vector e3 for a dipole magnetic field, shape (3, N)
+
+        See also
+        --------
+        get_apex_base_vectors: same as get_apex_base_vectors_geo but input and output in dipole coords
+        """
+
+        # convert input to magnetic:
+        mlat, mlon = self.geo2mag(lat, lon)
+        # calculate base vectors:
+        basevectors_m = self.get_apex_base_vectors(mlat, r, R = R)
+        
+        # convert base vectors to geocentric components
+        basevectors_g = []
+        for b in basevectors_m:
+            lat_, lon_, east, north = self.mag2geo(mlat, mlon, Ae = b[0], An = b[1])
+            basevectors_g.append(np.vstack((east, north, b[2])))
+
+        return tuple(basevectors_g)
+    
+    def map_vperp(self, lon, lat, alt, v, alt_target, R = 6371.2):
+        '''
+        Function that takes in a set of N velocity vectors (v) and its location (lon,lat,alt), 
+        and map the part of the vector that is perpendicular to the dipole field to the 
+        desired altitude, alt_target.
+
+        Parameters
+        ----------
+        lon : array-like
+            geocentric longitude [deg] of the points where the vector is to be mapped from
+        lat : array-like
+            geocentric latitude [deg] of the points where the vector is to be mapped from
+        alt : array-like
+            altitude of the points where the vector is to be mapped from, in same unit as R
+        v : 2D array
+            Contain the ENU geographic components of the vel. vector to be mapped, with shape (3,N)
+        alt_target : array-like
+            altitude of the mapped locations, in same unit as R. Must be of same length as alt
+        R : float, optional
+            Reference radius used in modified apex coordinates. Default is 6371.2 km
+
+        Returns
+        -------
+        lon_target : array-like
+            geographic longitude [deg] of the mapped location
+        lat_target : array-like
+            geographic latitude [deg] of the mapped location
+        vperpe : array-like
+            geographic east component of the mapped vector
+        vperpn : array-like
+            geographic north component of the mapped vector
+        vperpu : array-like
+            geographic up component of the mapped vector
+            modified apex base vector d1 for a dipole magnetic field, shape (3, N)
+        '''
+
+        r = R + alt
+        r_target = R + alt_target
+
+        # Centered Dipole input locations
+        mlat, mlon = self.geo2mag(lat, lon)
+
+        # Calculate the mapped locations. Map from observed location (r) 
+        # to the target height (target_r) using dipole formula
+        colat_r = 90-mlat
+        colat_target = np.arcsin(np.sin(np.radians(colat_r)) * np.sqrt(r_target/r))
+        mlat_target = 90 - np.degrees(colat_target)
+        mlon_target = mlon # in degrees
+
+        # Geocentric coordinates of the mapped locations
+        lat_target, lon_target = self.mag2geo(mlat_target, mlon_target)
+
+        # Get base vectors at input altitudes, r
+        d1, d2, d3, _1, _2, _3 = self.get_apex_base_vectors_geo(lon, lat, r, R=R)
+        
+        #Calculate the quantities that is constant along the field-lines
+        ve1 = (d1[0,:]*v[0,:] + d1[1,:]*v[1,:] + d1[2,:]*v[2,:])
+        ve2 = (d2[0,:]*v[0,:] + d2[1,:]*v[1,:] + d2[2,:]*v[2,:])
+
+        # Calculate basis vectors at the mapped locations
+        _1, _2, _3, e1, e2, e3 = self.get_apex_base_vectors_geo(lon_target, lat_target, r_target, R=R)
+
+        
+        #Calculate the mapped velocity using eq 4.17 in Richmond 1995. geographic components, ENU            
+        vperpmappede = (ve1.flatten()*e1[0,:] + ve2.flatten()*e2[0,:])
+        vperpmappedn = (ve1.flatten()*e1[1,:] + ve2.flatten()*e2[1,:])
+        vperpmappedu = (ve1.flatten()*e1[2,:] + ve2.flatten()*e2[2,:])
+
+        return (lon_target, lat_target, vperpmappede, vperpmappedn, vperpmappedu)     
+
+    def map_E(self, lon, lat, r, E, target_r):
+        pass
 
     def get_flux(self, lon, lat, R = 6371.2):
         """ Calculate magnetic flux poleward of one or more closed curves described by lon and lat
@@ -767,7 +907,7 @@ class Dipole(object):
         else:
             lat = lat.reshape((M, lon.size))
 
-        C = d.B0 * 1e-9 * (RE*1e3)** 3 / (R * 1e3) # convert all quantities to SI units
+        C = self.B0 * 1e-9 * (RE*1e3)** 3 / (R * 1e3) # convert all quantities to SI units
 
         dflux = CubicSpline(np.deg2rad(lon), 
                             C * np.cos(np.deg2rad(lat))**2, # flux integrated over latitude
