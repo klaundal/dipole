@@ -442,7 +442,7 @@ class Dipole(object):
         return np.arcsin( np.sum( s * m , axis = 1 )).reshape(shape) * r2d
 
 
-    def geo2mag(self, lat, lon, Ae = None, An = None, inverse = False):
+    def geo2mag(self, lat, lon, Ae = None, An = None, inverse = False, epsilon = 1e-12):
         """ Convert geographic (geocentric) to centered dipole coordinates
 
         The conversion uses IGRF coefficients directly, interpolated
@@ -466,6 +466,10 @@ class Dipole(object):
         inverse: bool, optional
             set to True to convert from magnetic to geographic. 
             Default is False
+        epsilon: float, optional
+            this number limits how small the norm of the vectors can be. Your
+            vectors (with components Ae and An) should be typically larger
+            than this. If they are not, decrease epsilon
 
         Returns
         -------
@@ -482,19 +486,19 @@ class Dipole(object):
 
         """
 
-        try:
-            shape = np.broadcast(lat, lon, Ae, An).shape
-        except:
-            raise Exception('Input have inconsistent shapes')
-
         if any([Ae is None, An is None]):
             Ae, An = 1, 1
             return_components = False
         else:
             return_components = True
 
-        lat = np.broadcast_to(lat, shape).flatten()
-        lon = np.broadcast_to(lon, shape).flatten()
+        try:
+            lat, lon, Ae, An = np.broadcast_arrays(lat, lon, Ae, An)
+            shape = lat.shape
+            lat, lon, Ae, An = lat.flatten(), lon.flatten(), Ae.flatten(), An.flatten()
+        except:
+            raise Exception('Input have inconsistent shapes')
+
 
         # make rotation matrix from geo to cd
         Zcd = self.axis
@@ -522,11 +526,10 @@ class Dipole(object):
             return 90 - colat_cd.reshape(shape), lon_cd.reshape(shape)
 
         # convert components:
-        Ae = (np.ones_like(lon * lat * An) * Ae).flatten()
-        An = (np.ones_like(lon * lat * Ae) * An).flatten()
-
+        print(Ae, An, lat, lon)
         A_geo_enu  = np.vstack((Ae, An, np.zeros(Ae.size)))
         A = np.sqrt(Ae**2 + An**2)
+        A[A < epsilon] = epsilon # to avoid zeros
         A_geo_ecef = enu_to_ecef((A_geo_enu / A).T, lon, lat ) # rotate normalized vectors to ecef
         A_cd_ecef = Rgeo_to_cd.dot(A_geo_ecef.T)
         A_cd_enu  = ecef_to_enu(A_cd_ecef.T, lon_cd, 90 - colat_cd).T * A 

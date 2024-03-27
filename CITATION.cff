@@ -1,0 +1,36 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: dipole
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - orcid: 'https://orcid.org/0000-0001-5028-4943'
+    given-names: Karl
+    family-names: Laundal
+    email: karl.laundal@uib.no
+    name-particle: Karl
+    affiliation: 'University of Bergen, Norway'
+  - given-names: Jone
+    family-names: Reistad
+    affiliation: 'University of Bergen, Norway'
+    orcid: 'https://orcid.org/0000-0003-3509-5479'
+  - given-names: Ashley
+    family-names: Smith
+    affiliation: 'University of Edinburgh, UK'
+    orcid: 'https://orcid.org/0000-0001-5198-9574'
+  - given-names: Amalie
+    family-names: Hovland
+    affiliation: 'University of Bergen, Norway'
+    orcid: 'https://orcid.org/0000-0001-5028-4943'
+identifiers:
+  - type: url
+    value: 'https://github.com/klaundal/dipole'
+abstract: >-
+  Code for working with magnetic dipole model of Earth's
+  magnetic field, including dipole coordinates and magnetic
+  apex coordinates and base vectors for a dipole field. 
+license: MIT
