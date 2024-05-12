@@ -526,7 +526,6 @@ class Dipole(object):
             return 90 - colat_cd.reshape(shape), lon_cd.reshape(shape)
 
         # convert components:
-        print(Ae, An, lat, lon)
         A_geo_enu  = np.vstack((Ae, An, np.zeros(Ae.size)))
         A = np.sqrt(Ae**2 + An**2)
         A[A < epsilon] = epsilon # to avoid zeros
@@ -708,7 +707,7 @@ class Dipole(object):
         C   = np.sqrt(4 - 3 * R2r * np.cos(la)**2)
         
         d1 =  R2r ** (3./2) * np.vstack((np.ones(N), np.zeros(N), np.zeros(N)))
-        d2 = -np.sign(la) * R2r ** (3./2) / C * np.vstack((np.zeros(N), 2 * np.sin(la), np.cos(la)))
+        d2 = -R2r ** (3./2) / C * np.vstack((np.zeros(N), 2 * np.sin(la), np.cos(la)))
         d3 =  R2r ** (-3) * C / (4 - 3 * np.cos(la)**2) * np.vstack((np.zeros(N), np.cos(la), -2*np.sin(la)))
 
         e1 = np.cross(d2.T, d3.T).T
