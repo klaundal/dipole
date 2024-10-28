@@ -647,6 +647,36 @@ class Dipole(object):
         return mlon.reshape(shape)
 
 
+    def get_length(self, lat, r = RE, quiet = False):
+        """ Calculate the length of the field line that maps to lat 
+
+        Not tested!
+
+        Parameters
+        ----------
+        lat : scalar
+            latitude in degrees
+
+        Returns
+        -------
+        Length of the dipole magnetic field line, integrated from -lat to lat, in
+        same units as r. 
+
+        """
+
+        if not quiet:
+            print('warning: not checked/tested, use with caution')
+
+        from scipy.integrate import quad
+
+        # define function that returns arc length as colatitude theta
+        def ds(theta): return(np.sin(theta) * np.sqrt(4 - 3 * np.sin(theta)**2))
+
+        length_unit_r, error = quad(ds, np.deg2rad(90 - np.abs(lat)), np.deg2rad( 90 + np.abs(lat)))
+
+        return( length_unit_r / np.sin(np.deg2rad(90 - lat))**2 * r )
+
+
     def get_apex_base_vectors(self, lat, r, R = 6371.2):
         """ Calculate apex coordinate base vectors d_i and e_i (i = 1, 2, 3)
 
